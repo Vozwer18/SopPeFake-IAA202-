@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.*
+!.env.example
+backend/generated/
+backend/public/products/*
+!backend/public/products/.gitkeep
+backend/uploads/
+test-results/
+playwright-report/
+*.log
+.DS_Store

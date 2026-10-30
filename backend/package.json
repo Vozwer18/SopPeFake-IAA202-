@@ -1,0 +1,28 @@
+{
+  "name": "soppe-fake-backend",
+  "version": "1.0.0",
+  "description": "Sop Pe Fake E-commerce Backend",
+  "main": "src/server.js",
+
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "admin:create": "node scripts/create-admin.js",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "node test/auth.unit.test.js",
+    "test:integration": "node test/marketplace.integration.test.js"
+  },
+
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.4",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mysql2": "^3.24.4",
+    "prisma": "^6.19.3"
+  }
+}

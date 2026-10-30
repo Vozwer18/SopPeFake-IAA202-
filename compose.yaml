@@ -1,0 +1,20 @@
+services:
+  db:
+    image: mysql:8.4
+    ports:
+      - "127.0.0.1:3307:3306"
+    environment:
+      MYSQL_DATABASE: soppe_fake
+      MYSQL_USER: soppe
+      # Local development only. Configure independent credentials on deployment.
+      MYSQL_PASSWORD: local-development-only
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+    volumes:
+      - soppe_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "--silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+volumes:
+  soppe_mysql:
