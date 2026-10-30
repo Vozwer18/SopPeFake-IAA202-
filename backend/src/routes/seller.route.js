@@ -1,0 +1,11 @@
+const r = require('express').Router(), c = require('../controllers/seller.controller');
+const { requireAuth, requireRole } = require('../middleware/auth.middleware');
+r.use(requireAuth, requireRole('seller'));
+const orders=require('../controllers/order.controller');
+r.get('/orders',orders.sellerOrders);r.patch('/orders/:id/status',orders.status);
+r.get('/dashboard', c.dashboard);
+r.get('/shops', c.shops); r.post('/shops', c.createShop); r.patch('/shops/:id', c.updateShop);
+r.get('/products', c.products); r.post('/products', c.createProduct); r.patch('/products/:id', c.updateProduct);
+r.patch('/products/:id/status', c.productVisibility);
+r.post('/products/:productId/images', c.uploadImages);
+module.exports = r;
