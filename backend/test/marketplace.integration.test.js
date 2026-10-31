@@ -51,6 +51,9 @@ test(
         await prisma.sellers.deleteMany({ where: { user_id: { in: userIds } } });
         await prisma.users.deleteMany({ where: { user_id: { in: userIds } } });
       } finally {
+        if (process.env.MEDIA_STORAGE === 'database') {
+          await prisma.uploaded_images.deleteMany({ where: { filename: { in: uploadedFiles.map(url => require('node:path').basename(url)) } } });
+        }
         for (const url of uploadedFiles) {
           const name = require('node:path').basename(url);
           await require('node:fs/promises').rm(

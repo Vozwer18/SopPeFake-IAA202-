@@ -23,6 +23,7 @@ app.use((req,res,next) => {
 app.use(express.json({limit:'15mb'}));
 app.use(express.urlencoded({extended:false,limit:'1mb'}));
 app.use((req,res,next)=>{req.body ||= {};next();});
+app.get('/products/:filename',require('./controllers/media.util').serveImage);
 app.use('/products',express.static(path.join(__dirname,'../public/products')));
 app.get('/api/health',(req,res)=>res.json({message:'SopPe API running',status:'OK'}));
 app.use('/api/auth',require('./routes/auth.route'));
