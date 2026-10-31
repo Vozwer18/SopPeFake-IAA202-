@@ -1,6 +1,7 @@
 const prisma = require('../config/database');
 const { saveImages } = require('./media.util');
-const { action, id, text, integer, HttpError } = require('../lib/validation');
+const { action, id, text, HttpError } = require('../lib/validation');
+const { variantInput, saveVariants } = require('../lib/seller-variants');
 
 async function ownShop(sellerId, shopId, active = false) {
   const shop = await prisma.shops.findFirst({ where: { shop_id: id(shopId), seller_id: sellerId, ...(active ? { status: 'active' } : {}) } });
@@ -22,17 +23,18 @@ function productInput(body) {
   return {
     name: text(body.name, 'Tên sản phẩm', 255),
     description: body.description ? text(body.description, 'Mô tả', 20000) : null,
-    price: integer(body.price, 'Giá', 1, 999999999999),
-    stock: integer(body.stock ?? 0, 'Tồn kho'),
-    sku: body.sku ? text(body.sku, 'SKU', 100) : null,
   };
 }
 exports.dashboard = action(async (req, res) => {
   const seller = await prisma.sellers.findUnique({ where: { seller_id: req.user.sellerId }, include: { shops: { include: { shop_statistics: true } } } });
   if (!seller) throw new HttpError(404, 'Không tìm thấy người bán.');
   const ids = seller.shops.map(s => s.shop_id);
-  const [products, orders] = await Promise.all([prisma.products.count({ where: { shop_id: { in: ids } } }), prisma.order_items.count({ where: { shop_id: { in: ids } } })]);
-  res.json({ success: true, data: { seller, stats: { products, orders, shops: ids.length, revenue: seller.shops.reduce((sum, s) => sum + Number(s.shop_statistics?.[0]?.total_revenue || 0), 0) } } });
+  const [products, orders, revenue] = await Promise.all([
+    prisma.products.count({ where: { shop_id: { in: ids } } }),
+    prisma.orders.count({ where: { order_items: { some: { shop_id: { in: ids } } } } }),
+    prisma.order_items.aggregate({ where: { shop_id: { in: ids }, orders: { status: 'completed', payments: { payment_status: 'paid' } } }, _sum: { subtotal: true } }),
+  ]);
+  res.json({ success: true, data: { seller, stats: { products, orders, shops: ids.length, revenue: Number(revenue._sum.subtotal || 0) } } });
 });
 exports.shops = action(async (req, res) => {
   const data = await prisma.shops.findMany({ where: { seller_id: req.user.sellerId }, orderBy: { shop_id: 'asc' } });
@@ -56,20 +58,36 @@ exports.updateShop = action(async (req, res) => {
   const updated = await prisma.shops.update({ where: { shop_id: shop.shop_id }, data });
   res.json({ success: true, data: updated });
 });
+exports.paymentQr = action(async (req, res) => {
+  const shop = await ownShop(req.user.sellerId, req.params.id);
+  if (shop.status === 'banned') throw new HttpError(403, 'Cửa hàng đã bị khóa.');
+  if (typeof req.body.image !== 'string') throw new HttpError(400, 'Chọn ảnh QR thanh toán.');
+  const [url] = await saveImages([req.body.image]);
+  await prisma.shops.update({ where: { shop_id: shop.shop_id }, data: { payment_qr_url: url, updated_at: new Date() } });
+  res.json({ success: true, data: { qrUrl: url }, message: 'Đã cập nhật QR nhận tiền của shop.' });
+});
 exports.products = action(async (req, res) => {
   const products = await prisma.products.findMany({ where: { shops: { seller_id: req.user.sellerId } }, orderBy: { created_at: 'desc' }, include: { shops: true, product_media: { orderBy: { sort_order: 'asc' } }, product_variants: { orderBy: { variant_id: 'asc' } }, inventories: {orderBy:{inventory_id:'asc'}}, product_category_map: { include: { categories: true } } } });
-  res.json({ success: true, data: products.map(p => ({ id: p.product_id, name: p.name, description: p.description, shopId: p.shop_id, shop: p.shops.shop_name, status: p.status, price: Number(p.product_variants[0]?.price || 0), sku: p.product_variants[0]?.sku, variantId:p.product_variants[0]?.variant_id, variantStock:Number(p.inventories.find(inv=>inv.variant_id===p.product_variants[0]?.variant_id)?.quantity||0), stock: p.inventories.reduce((sum, inv) => sum + inv.quantity, 0), image: p.product_media[0]?.url || '', categoryIds: p.product_category_map.map(c => c.category_id), categories: p.product_category_map.map(c => c.categories.name) })) });
+  res.json({ success: true, data: products.map(p => {
+    const variants = p.product_variants.map(v => {
+      const inventories = p.inventories.filter(inv => inv.variant_id === v.variant_id);
+      return { id: v.variant_id, sku: v.sku, price: Number(v.price), status: v.status, stock: inventories.reduce((sum, inv) => sum + Number(inv.quantity || 0), 0), reserved: inventories.reduce((sum, inv) => sum + Number(inv.reserved_quantity || 0), 0) };
+    });
+    const active = variants.filter(v => v.status === 'active'), first = active[0] || variants[0];
+    const prices = active.map(v => v.price);
+    return { id: p.product_id, name: p.name, description: p.description, shopId: p.shop_id, shop: p.shops.shop_name, status: p.status, price: prices.length ? Math.min(...prices) : 0, maxPrice: prices.length ? Math.max(...prices) : 0, sku: first?.sku, variantId: first?.id, variantStock: first?.stock || 0, stock: active.reduce((sum, v) => sum + v.stock, 0), variants, variantCount: active.length, image: p.product_media[0]?.url || '', categoryIds: p.product_category_map.map(c => c.category_id), categories: p.product_category_map.map(c => c.categories.name) };
+  }) });
 });
 exports.createProduct = action(async (req, res) => {
   const input = productInput(req.body);
+  const variants = variantInput(req.body);
   const shop = req.body.shopId ? await ownShop(req.user.sellerId, req.body.shopId, true) : await prisma.shops.findFirst({ where: { seller_id: req.user.sellerId, status: 'active' } });
   if (!shop) throw new HttpError(400, 'Tạo cửa hàng hoạt động trước khi đăng sản phẩm.');
   const category_id = await categoryId(req.body.categoryId);
   const urls = await saveImages(req.body.images || []);
   const created = await prisma.$transaction(async tx => {
     const product = await tx.products.create({ data: { shop_id: shop.shop_id, name: input.name, description: input.description, status: 'draft' } });
-    const variant = await tx.product_variants.create({ data: { product_id: product.product_id, sku: input.sku || `SKU-${product.product_id}-${Date.now()}`, price: String(input.price) } });
-    await tx.inventories.create({ data: { product_id: product.product_id, variant_id: variant.variant_id, quantity: input.stock } });
+    await saveVariants(tx, product.product_id, variants, true);
     if (category_id) await tx.product_category_map.create({ data: { product_id: product.product_id, category_id } });
     if (urls.length) await tx.product_media.createMany({ data: urls.map((url, i) => ({ product_id: product.product_id, url, media_type: 'image', is_thumbnail: i === 0, sort_order: i })) });
     return product;
@@ -81,18 +99,14 @@ exports.updateProduct = action(async (req, res) => {
   await ownShop(req.user.sellerId, product.shop_id, true);
   if (product.status === 'banned') throw new HttpError(403, 'Sản phẩm đã bị khóa bởi quản trị viên.');
   const input = productInput(req.body);
+  const variants = variantInput(req.body, product.product_variants);
   const category_id = await categoryId(req.body.categoryId);
   await prisma.$transaction(async tx => {
     await tx.products.update({ where: { product_id: product.product_id }, data: { name: input.name, description: input.description, status: 'draft', updated_at: new Date() } });
-    const variant = product.product_variants[0];
-    if (!variant) throw new HttpError(400, 'Sản phẩm chưa có phân loại.');
-    await tx.product_variants.update({ where: { variant_id: variant.variant_id }, data: { price: String(input.price), ...(input.sku ? { sku: input.sku } : {}) } });
-    const inventory = await tx.inventories.findFirst({ where: { variant_id: variant.variant_id },orderBy:{inventory_id:'asc'} });
-    if (inventory) await tx.inventories.update({ where: { inventory_id: inventory.inventory_id }, data: { quantity: input.stock } });
-    else await tx.inventories.create({ data: { product_id: product.product_id, variant_id: variant.variant_id, quantity: input.stock } });
+    await saveVariants(tx, product.product_id, variants);
     await tx.product_category_map.deleteMany({ where: { product_id: product.product_id } });
     if (category_id) await tx.product_category_map.create({ data: { product_id: product.product_id, category_id } });
-  });
+  }, { isolationLevel: 'ReadCommitted' });
   res.json({ success: true, message: 'Đã cập nhật. Sản phẩm đang chờ duyệt lại.' });
 });
 exports.uploadImages = action(async (req, res) => {

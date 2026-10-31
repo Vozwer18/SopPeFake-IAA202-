@@ -3,9 +3,19 @@
   const list = document.getElementById('cart-list');
   const message = document.getElementById('cart-message');
   let items = [];
+  let cartId = null, busy = false;
+  const checkoutKeys = new Map();
+  function checkoutState() {
+    const valid = items.length > 0 && items.every(item => item.available && item.stock >= item.quantity && item.shop?.paymentReady);
+    document.getElementById('checkout-section').hidden = !items.length;
+    document.getElementById('checkout-submit').disabled = busy || !valid;
+    const missing = [...new Set(items.filter(item => !item.shop?.paymentReady).map(item => item.shop?.name || 'Một shop'))];
+    document.getElementById('checkout-warning').textContent = missing.length ? `${missing.join(', ')} chưa cập nhật QR thanh toán. Hãy chờ shop cập nhật hoặc xóa sản phẩm của shop đó khỏi giỏ.` : !valid && items.length ? 'Giỏ có sản phẩm ngừng bán hoặc vượt tồn kho. Vui lòng cập nhật trước khi đặt.' : '';
+  }
   async function loadCart() {
     try {
       const result = await api('/api/cart');
+      cartId = result.data?.cart_id || null;
       items = result.data?.cart_items || [];
       let total = 0;
       list.innerHTML =
@@ -22,6 +32,7 @@
           .join('') ||
         '<div class="empty"><h2>Giỏ hàng đang trống</h2><p>Khám phá sản phẩm và thêm những món bạn yêu thích.</p><a class="btn btn-primary" href="product-list.html">Xem sản phẩm</a></div>';
       document.getElementById('cart-total').textContent = money(total);
+      checkoutState();
       list.querySelectorAll('[data-change]').forEach((button) =>
         button.addEventListener('click', () => {
           const item = items[Number(button.dataset.index)];
@@ -39,12 +50,15 @@
           ),
         );
     } catch (error) {
+      document.getElementById('checkout-submit').disabled = true;
       list.innerHTML = `<div class="empty" role="alert">${esc(error.message || 'Không thể tải giỏ hàng. Vui lòng thử lại.')}</div>`;
       document.getElementById('cart-total').textContent = '—';
       if (error.status === 401) location.href = 'login.html?next=%2Fcart.html';
     }
   }
   async function changeItem(id, quantity) {
+    if (busy) return;
+    busy = true; checkoutState();
     list.querySelectorAll('button').forEach((button) => (button.disabled = true));
     message.textContent = 'Đang cập nhật giỏ hàng…';
     try {
@@ -61,8 +75,24 @@
     } catch (error) {
       message.textContent = error.message || 'Không thể cập nhật giỏ hàng.';
       await loadCart();
-    }
+    } finally { busy = false; checkoutState(); }
   }
-  SopPe.mountNavbar();
+  document.getElementById('checkout-form').onsubmit = async event => {
+    event.preventDefault();
+    if (busy || !cartId || document.getElementById('checkout-submit').disabled) return;
+    const values = Object.fromEntries(new FormData(event.target));
+    if (!checkoutKeys.has(cartId)) checkoutKeys.set(cartId, crypto.randomUUID());
+    busy = true; checkoutState(); list.querySelectorAll('button').forEach(button => { button.disabled = true; });
+    message.textContent = 'Đang tạo đơn hàng…';
+    try {
+      const { note, ...address } = values;
+      const result = await api('/api/orders/checkout', { method: 'POST', body: JSON.stringify({ cartId, checkoutKey: checkoutKeys.get(cartId), address, note }) });
+      location.href = 'orders.html?order=' + encodeURIComponent(result.data.orders[0].id);
+    } catch (error) {
+      message.textContent = error.message;
+      await loadCart(); busy = false; checkoutState();
+    }
+  };
+  SopPe.mountNavbar().then(user => { if (user) document.getElementById('receiver-name').value = user.fullName || user.username || ''; });
   loadCart();
 })();

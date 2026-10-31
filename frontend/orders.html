@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="vi">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Đơn hàng của tôi · SopPe Fake</title><link rel="stylesheet" href="css/navbar.css"><link rel="stylesheet" href="css/orders.css"></head>
+<body>
+<div id="navbar"><header class="navbar">
+  <div class="utility-bar"><div class="nav-shell"><span id="browse-mode">Khám phá SopPe Fake</span><div id="nav-account"><a href="login.html">Đăng nhập</a></div></div></div>
+  <div class="navbar-top nav-shell"><a class="brand" href="index.html"><span>SopPe</span> <strong>Fake</strong></a><form class="search-box" id="global-search" role="search"><input id="search-input" type="search" aria-label="Tìm sản phẩm" placeholder="Bạn đang tìm sản phẩm gì?"><button>Tìm kiếm</button></form><a href="cart.html" class="cart-link" id="cart-link" hidden><span>Giỏ hàng</span><b id="cart-count">0</b></a></div>
+  <nav class="category-menu nav-shell" aria-label="Danh mục"><a href="index.html">Trang chủ</a><a href="product-list.html">Tất cả sản phẩm</a><span id="nav-categories"></span></nav>
+</header></div>
+<main class="container section"><div class="section-title"><div><span class="eyebrow">ĐƠN HÀNG</span><h1>Đơn hàng của bạn</h1><p class="muted">Thanh toán qua QR của từng shop, theo dõi giao hàng và đánh giá sau khi nhận.</p></div><div class="actions"><button class="btn btn-outline" type="button" id="refresh-orders">Cập nhật trạng thái</button><a class="btn btn-primary" href="cart.html">Giỏ hàng</a></div></div><p id="orders-message" role="status" aria-live="polite"></p><div class="orders-list" id="customer-orders" aria-live="polite"><div class="empty card">Đang tải đơn hàng…</div></div></main>
+<script src="js/common.js"></script><script src="js/order-ui.js"></script><script src="js/orders.js"></script>
+</body></html>

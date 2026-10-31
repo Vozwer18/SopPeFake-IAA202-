@@ -1,0 +1,36 @@
+@import url('theme.css');
+.orders-list { display: grid; gap: 20px; }
+.order-card { padding: 24px; min-width: 0; }
+.order-head,.order-total,.order-item { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.order-head { margin-bottom: 18px; flex-wrap: wrap; }
+.order-head h2 { margin: 5px 0; font-size: 20px; overflow-wrap: anywhere; }
+.order-item { padding: 12px 0; border-top: 1px solid var(--line); }
+.order-item small { display: block; color: var(--muted); margin-top: 4px; overflow-wrap: anywhere; }
+.order-item b,.order-item strong { overflow-wrap: anywhere; }
+.order-total { flex-wrap: wrap; padding: 16px 0; border-top: 1px solid var(--line); }
+.order-total strong { font-size: 19px; }
+.order-address { padding: 14px; background: var(--primary-soft); border-radius: 10px; overflow-wrap: anywhere; }
+.order-address p { margin: 6px 0 0; }
+.qr-payment { display: grid; grid-template-columns: 220px minmax(0,1fr); gap: 24px; align-items: center; margin: 18px 0; padding: 18px; border: 1px solid var(--line); border-radius: 12px; }
+.qr-payment img,.shop-qr-image { width: 100%; max-width: 220px; height: auto; object-fit: contain; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.qr-payment>a { width: 100%; max-width: 220px; }
+.qr-payment code { overflow-wrap: anywhere; user-select: all; }
+.order-actions { margin-top: 16px; }
+.order-review { margin-top: 20px; padding: 18px; border: 1px solid var(--line); border-radius: 12px; }
+.order-review p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.review-form { display: grid; gap: 12px; }
+.review-form h3 { margin: 0; font-size: 17px; }
+.review-form label { display: grid; gap: 6px; }
+.review-form button { justify-self: start; }
+.shop-payment { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 16px; }
+.shop-payment h4 { margin: 0 0 12px; }
+.shop-payment .file-button { margin-top: 10px; }
+.status.completed { color: #17643b; background: #e4f6eb; }
+.status.shipping,.status.confirmed { color: #1559a8; background: #e7f0ff; }
+.status.cancelled { color: #98413e; background: #fdebea; }
+@media(max-width:600px) {
+  .order-card { padding: 16px; }
+  .qr-payment { grid-template-columns: minmax(0,1fr); gap: 12px; }
+  .qr-payment>a { justify-self: center; }
+  .order-item { gap: 10px; }
+}

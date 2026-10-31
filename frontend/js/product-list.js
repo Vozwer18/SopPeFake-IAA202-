@@ -48,7 +48,7 @@
       visible
         .map(
           (product) =>
-            `<a class="product-card card" href="product-detail.html?id=${encodeURIComponent(product.id)}"><div class="product-image placeholder-img">${imageUrl(product.image) ? `<img src="${esc(imageUrl(product.image))}" alt="${esc(product.name)}" loading="lazy">` : 'SopPe Fake'}</div><div class="product-body"><div class="product-name">${esc(product.name)}</div><div class="product-price">${money(product.price)}</div><div class="product-meta"><span>★ ${Number(product.rating || 0).toFixed(1)}</span><span>Đã bán ${Number(product.sold || 0)}</span></div><div class="shop-name">${esc(product.shop || 'SopPe Fake')}</div></div></a>`,
+            `<a class="product-card card" href="product-detail.html?id=${encodeURIComponent(product.id)}"><div class="product-image placeholder-img">${imageUrl(product.image) ? `<img src="${esc(imageUrl(product.image))}" alt="${esc(product.name)}" loading="lazy">` : 'SopPe Fake'}</div><div class="product-body"><div class="product-name">${esc(product.name)}</div><div class="product-price">${Number(product.maxPrice) > Number(product.price) ? 'Từ ' : ''}${money(product.price)}</div><div class="product-meta"><span>★ ${Number(product.rating || 0).toFixed(1)}</span><span>Đã bán ${Number(product.sold || 0)}</span></div><div class="shop-name">${esc(product.shop || 'SopPe Fake')}</div></div></a>`,
         )
         .join('') ||
       '<div class="empty card">Chưa có sản phẩm phù hợp. Hãy thử một từ khóa hoặc danh mục khác.</div>';

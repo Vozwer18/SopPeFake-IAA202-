@@ -23,6 +23,11 @@ them in the seller panel and chooses one when adding a product. New or edited
 products return to draft for administrator approval. Only active products from
 active shops, approved sellers and active seller accounts appear publicly.
 
+Sellers can manage multiple SKUs per product using **+ Thêm SKU** in the product
+form, with separate prices and stock. Existing SKUs can be retired/reactivated
+without breaking cart/order references. See [the multi-SKU guide](MULTI_SKU.md).
+This uses the current database schema and requires no new migration.
+
 The catalogue searches both product and shop names, with newest products first.
 Product details and cart quantities use the selected variant's available stock
 (quantity minus reserved quantity), excluding inactive variants. Cart images fall
@@ -145,9 +150,16 @@ and the database independently of the application process. The example Compose
 credentials are for local development only. Prisma must be generated for the
 deployment operating system; Windows-generated engines are not included.
 
-The customer panel currently supports the existing cart workflow. Checkout,
-payments, order fulfilment, password recovery, and production login throttling
-are separate features, not implemented by this change.
+The cart supports checkout into separate shop orders and manual QR transfers.
+Sellers upload a shop QR, confirm received payment, then mark goods shipped;
+buyers confirm receipt to unlock one review per product/order. See the
+[QR order guide](QR_ORDERS.md). Checkout reserves stock and repeat submissions
+do not duplicate orders. The new additive migration stores QR snapshots and
+checkout tokens; startup applies it without resetting data.
+
+Bank transaction verification, payment-provider webhooks, automatic refunds,
+shipping tracking, password recovery and production login throttling are not
+implemented. QR transfers and seller payment confirmations are manual.
 
 ## Opening HTML files and returning to the storefront
 

@@ -1,8 +1,12 @@
 const r = require('express').Router(), c = require('../controllers/seller.controller');
 const { requireAuth, requireRole } = require('../middleware/auth.middleware');
+const orders = require('../controllers/order.controller');
 r.use(requireAuth, requireRole('seller'));
 r.get('/dashboard', c.dashboard);
 r.get('/shops', c.shops); r.post('/shops', c.createShop); r.patch('/shops/:id', c.updateShop);
+r.put('/shops/:id/payment-qr', c.paymentQr);
+r.get('/orders', orders.sellerOrders);
+r.post('/orders/:id/:action', orders.sellerAction);
 r.get('/products', c.products); r.post('/products', c.createProduct); r.patch('/products/:id', c.updateProduct);
 r.patch('/products/:id/status', c.productVisibility);
 r.post('/products/:productId/images', c.uploadImages);

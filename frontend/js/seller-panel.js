@@ -18,6 +18,7 @@
   const titles = {
     dashboard: 'Tổng quan',
     products: 'Quản lý sản phẩm',
+    orders: 'Đơn hàng của shop',
     shops: 'Cửa hàng của bạn',
     categories: 'Danh mục sản phẩm',
     shipping: 'Dịch vụ vận chuyển',
@@ -52,7 +53,7 @@
       products
         .map(
           (p) =>
-            `<tr><td><div class="product-mini">${p.image ? `<img src="${esc(imageUrl(p.image))}" alt="">` : '<span class="mini-placeholder">S</span>'}<div><b>${esc(p.name)}</b><small class="muted">${esc(p.shop || '')}</small></div></div></td><td>${money(p.price)}</td><td>${Number(p.stock)}</td><td><span class="status ${esc(p.status)}">${esc(statusLabel(p.status))}</span></td><td><div class="actions"><button class="btn btn-soft edit-product" data-id="${p.id}">Sửa</button><button class="btn btn-outline visibility-product" data-id="${p.id}" data-status="${p.status === 'hidden' ? 'draft' : 'hidden'}">${p.status === 'hidden' ? 'Gửi duyệt' : 'Ẩn'}</button><label class="btn btn-outline file-button">Thêm ảnh<input data-id="${p.id}" type="file" accept="image/png,image/jpeg,image/webp" multiple class="visually-hidden upload-images"></label></div></td></tr>`,
+            `<tr><td><div class="product-mini">${p.image ? `<img src="${esc(imageUrl(p.image))}" alt="">` : '<span class="mini-placeholder">S</span>'}<div><b>${esc(p.name)}</b><small class="muted">${esc(p.shop || '')} · ${Number(p.variantCount || 0)} SKU đang bán</small></div></div></td><td>${Number(p.maxPrice) > Number(p.price) ? `${money(p.price)} – ${money(p.maxPrice)}` : money(p.price)}</td><td>${Number(p.stock)}</td><td><span class="status ${esc(p.status)}">${esc(statusLabel(p.status))}</span></td><td><div class="actions"><button class="btn btn-soft edit-product" data-id="${p.id}">Sửa</button><button class="btn btn-outline visibility-product" data-id="${p.id}" data-status="${p.status === 'hidden' ? 'draft' : 'hidden'}">${p.status === 'hidden' ? 'Gửi duyệt' : 'Ẩn'}</button><label class="btn btn-outline file-button">Thêm ảnh<input data-id="${p.id}" type="file" accept="image/png,image/jpeg,image/webp" multiple class="visually-hidden upload-images"></label></div></td></tr>`,
         )
         .join('') ||
       '<tr><td colspan="5" class="empty">Chưa có sản phẩm. Thêm sản phẩm đầu tiên cho cửa hàng của bạn.</td></tr>';
@@ -63,7 +64,7 @@
       shops
         .map(
           (s) =>
-            `<article class="card panel-card"><div class="panel-head"><h3>${esc(s.shop_name)}</h3><span class="status ${esc(s.status)}">${esc(statusLabel(s.status))}</span></div><p class="muted">${esc(s.description || 'Chưa có giới thiệu cửa hàng.')}</p><button class="btn btn-soft edit-shop" data-id="${s.shop_id}">Chỉnh sửa cửa hàng</button></article>`,
+            `<article class="card panel-card"><div class="panel-head"><h3>${esc(s.shop_name)}</h3><span class="status ${esc(s.status)}">${esc(statusLabel(s.status))}</span></div><p class="muted">${esc(s.description || 'Chưa có giới thiệu cửa hàng.')}</p><button class="btn btn-soft edit-shop" data-id="${s.shop_id}">Chỉnh sửa cửa hàng</button><div class="shop-payment"><h4>QR nhận tiền</h4>${imageUrl(s.payment_qr_url) ? `<img class="shop-qr-image" src="${esc(imageUrl(s.payment_qr_url))}" alt="QR nhận tiền của ${esc(s.shop_name)}">` : '<p class="muted">Chưa có QR. Cập nhật QR trước khi khách đặt hàng.</p>'}<p class="muted small">Dùng ảnh QR nhận chuyển khoản của bạn, không ghi sẵn số tiền. Đơn đã đặt giữ QR tại thời điểm đặt.</p><label class="btn btn-outline file-button">${s.payment_qr_url ? 'Thay ảnh QR' : 'Tải ảnh QR'}<input class="visually-hidden shop-qr-upload" type="file" accept="image/png,image/jpeg,image/webp" data-shop-id="${s.shop_id}"></label></div></article>`,
         )
         .join('') ||
       '<div class="empty card">Bạn chưa có cửa hàng. Hãy tạo cửa hàng đầu tiên.</div>';
@@ -98,8 +99,69 @@
         )
         .join('') || '<div class="empty card">Chưa có dịch vụ vận chuyển được cấu hình.</div>';
   }
+  async function loadOrders() {
+    const orders = (await api('/api/seller/orders')).data || [];
+    document.getElementById('seller-orders').innerHTML = orders.length ? orders.map(order => OrderUI.render(order, 'seller')).join('') : '<div class="empty card">Shop chưa có đơn hàng.</div>';
+  }
+  OrderUI.bind(document.getElementById('seller-orders'), 'seller', async () => { await Promise.all([loadOrders(), dashboard()]); });
+  document.getElementById('refresh-seller-orders').onclick = async event => {
+    event.target.disabled = true;
+    try { await loadOrders(); } catch (error) { message(error.message, 'error'); } finally { event.target.disabled = false; }
+  };
+  document.getElementById('seller-shops').onchange = async event => {
+    const input = event.target;
+    if (!input.matches('.shop-qr-upload') || !input.files.length) return;
+    input.disabled = true;
+    try {
+      const [image] = await filesToData(input.files);
+      await api(`/api/seller/shops/${input.dataset.shopId}/payment-qr`, { method: 'PUT', body: JSON.stringify({ image: image.data }) });
+      message('Đã cập nhật QR nhận tiền.'); await loadShops();
+    } catch (error) { message(error.message, 'error'); } finally { input.disabled = false; input.value = ''; }
+  };
   const modal = document.getElementById('product-modal'),
     form = document.getElementById('product-form');
+  const variantList = document.getElementById('product-variants');
+  let variantSerial = 0;
+  function updateVariantCount() {
+    const rows = [...variantList.querySelectorAll('.sku-row')];
+    rows.forEach((row, index) => {
+      const inactive = row.querySelector('[data-field="status"]').value === 'inactive';
+      row.classList.toggle('sku-inactive', inactive);
+      row.querySelector('legend').textContent = `SKU ${index + 1}`;
+      const button = row.querySelector('[data-sku-action]');
+      button.textContent = row.dataset.variantId ? (inactive ? 'Bán lại' : 'Ngừng bán') : 'Xóa dòng';
+      button.setAttribute('aria-label', `${button.textContent} SKU ${index + 1}`);
+    });
+    const active = rows.filter(row => row.querySelector('[data-field="status"]').value === 'active').length;
+    document.getElementById('sku-count').textContent = `${rows.length} SKU · ${active} đang bán`;
+    document.getElementById('add-sku').disabled = rows.length >= 32;
+  }
+  function appendVariant(variant = {}) {
+    const key = `sku-${++variantSerial}`, reserved = Number(variant.reserved || 0);
+    variantList.insertAdjacentHTML('beforeend', `<fieldset class="sku-row" data-variant-id="${esc(variant.id || '')}"><legend>SKU</legend><div class="sku-fields"><div class="field sku-code"><label for="${key}-code">Mã SKU</label><input id="${key}-code" data-field="sku" maxlength="100" placeholder="Ví dụ AO-DEN-M; trống để tự tạo" value="${esc(variant.sku || '')}"></div><div class="field"><label for="${key}-price">Giá bán (₫)</label><input id="${key}-price" data-field="price" type="number" min="1" max="999999999999" step="1" required value="${esc(variant.price ?? '')}"></div><div class="field"><label for="${key}-stock">Tồn kho</label><input id="${key}-stock" data-field="stock" type="number" min="${reserved}" max="2147483647" step="1" required value="${esc(variant.stock ?? 0)}">${reserved ? `<small class="muted">Đang giữ chỗ: ${reserved}</small>` : ''}</div></div><div class="sku-actions"><label for="${key}-status">Trạng thái</label><select id="${key}-status" data-field="status"><option value="active" ${variant.status !== 'inactive' ? 'selected' : ''}>Đang bán</option><option value="inactive" ${variant.status === 'inactive' ? 'selected' : ''}>Ngừng bán</option></select><button class="btn btn-soft" type="button" data-sku-action></button></div></fieldset>`);
+    updateVariantCount();
+    return variantList.lastElementChild;
+  }
+  document.getElementById('add-sku').onclick = () => {
+    if (variantList.children.length >= 32) return;
+    appendVariant().querySelector('[data-field="sku"]').focus();
+  };
+  variantList.onchange = updateVariantCount;
+  variantList.onclick = event => {
+    const button = event.target.closest('[data-sku-action]');
+    if (!button) return;
+    const row = button.closest('.sku-row');
+    if (row.dataset.variantId) {
+      const status = row.querySelector('[data-field="status"]');
+      status.value = status.value === 'active' ? 'inactive' : 'active';
+    } else {
+      if (variantList.children.length <= 1) { message('Sản phẩm cần ít nhất một SKU.', 'error'); return; }
+      const next = row.nextElementSibling || row.previousElementSibling;
+      row.remove();
+      next?.querySelector('[data-field="sku"]').focus();
+    }
+    updateVariantCount();
+  };
   function openProduct(p) {
     form.reset();
     images = [];
@@ -111,14 +173,16 @@
     document.getElementById('new-product-images').hidden = !!p;
     form.elements.productId.value = p?.id || '';
     form.elements.shopId.disabled = !!p;
-    for (const key of ['name', 'description', 'price', 'stock', 'sku'])
+    for (const key of ['name', 'description'])
       if (p && p[key] != null) form.elements[key].value = p[key];
     if (p) {
-      form.elements.stock.value = p.variantStock ?? p.stock;
       form.elements.shopId.value =
         p.shopId || shops.find((s) => s.shop_name === p.shop)?.shop_id || '';
       form.elements.categoryId.value = p.categoryIds?.[0] || p.categories?.[0]?.id || '';
     }
+    variantList.replaceChildren();
+    const variants = p?.variants?.length ? p.variants : [{ id: p?.variantId, sku: p?.sku, price: p?.price ?? '', stock: p?.variantStock ?? p?.stock ?? 0 }];
+    variants.forEach(appendVariant);
     openModal(modal);
     document.getElementById('product-name').focus();
   }
@@ -166,9 +230,19 @@
     const body = Object.fromEntries(new FormData(form)),
       id = body.productId;
     delete body.productId;
+    body.variants = [...variantList.querySelectorAll('.sku-row')].map(row => ({
+      ...(row.dataset.variantId ? { id: row.dataset.variantId } : {}),
+      sku: row.querySelector('[data-field="sku"]').value.trim(),
+      price: row.querySelector('[data-field="price"]').value,
+      stock: row.querySelector('[data-field="stock"]').value,
+      status: row.querySelector('[data-field="status"]').value,
+    }));
     if (!id) body.images = images;
     e.submitter.disabled = true;
     try {
+      if (!body.variants.some(variant => variant.status === 'active')) throw new Error('Cần giữ ít nhất một SKU đang bán. Muốn ngừng cả sản phẩm, hãy chọn Ẩn.');
+      const codes = body.variants.map(variant => variant.sku.toLowerCase()).filter(Boolean);
+      if (new Set(codes).size !== codes.length) throw new Error('Các mã SKU không được trùng nhau.');
       await api('/api/seller/products' + (id ? '/' + id : ''), {
         method: id ? 'PATCH' : 'POST',
         body: JSON.stringify(body),
@@ -268,6 +342,7 @@
   };
   Promise.allSettled([
     dashboard(),
+    loadPanelSection('seller-orders', loadOrders),
     loadPanelSection('seller-products', loadProducts, 5),
     loadPanelSection('seller-shops', loadShops),
     loadPanelSection('seller-categories', loadCategories),
