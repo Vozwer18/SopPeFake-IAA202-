@@ -197,7 +197,7 @@ exports.uploadImages = action(async (req, res) => {
   const product_id = id(req.params.id);
   if (!(await prisma.products.findUnique({ where: { product_id } })))
     throw new HttpError(404, 'Sản phẩm không tồn tại.');
-  const urls = saveImages(req.body.images || []);
+  const urls = await saveImages(req.body.images || []);
   const count = await prisma.product_media.count({ where: { product_id } });
   if (urls.length)
     await prisma.product_media.createMany({

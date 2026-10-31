@@ -7,6 +7,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Small demo uploads can live in MySQL when hosting has no persistent disk.
+model uploaded_images {
+  filename     String   @id @db.VarChar(80)
+  content      Bytes    @db.MediumBlob
+  content_type String   @db.VarChar(32)
+  created_at   DateTime @default(now()) @db.Timestamp(0)
+}
+
 model addresses {
   address_id     Int                     @id @default(autoincrement())
   user_id        Int

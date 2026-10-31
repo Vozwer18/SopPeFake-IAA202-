@@ -127,6 +127,16 @@ Never point it at the deployed catalogue.
 
 ## Deployment
 
+For a free class-project demo, use [Render Free + Aiven MySQL](DEPLOY_FREE.md).
+`render.yaml` selects the Free instance and database-backed image uploads, so
+uploads survive container restarts without a paid disk. `npm run start:demo`
+runs migrations before listening and optionally provisions the first admin.
+Local development continues to use filesystem uploads by default.
+
+For a first online deployment, follow [the Railway walkthrough in Vietnamese](DEPLOY_RAILWAY.md).
+The root `Dockerfile` packages the existing Express frontend/API together;
+`railway.json` runs versioned database migrations before starting the application.
+
 Configure a MySQL database, a unique `JWT_SECRET`, `NODE_ENV=production`, and HTTPS.
 Production cookies are Secure and HttpOnly. Behind one trusted reverse proxy,
 set `TRUST_PROXY=1` and have it set the original protocol header correctly; keep

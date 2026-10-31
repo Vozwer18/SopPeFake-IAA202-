@@ -65,7 +65,7 @@ exports.createProduct = action(async (req, res) => {
   const shop = req.body.shopId ? await ownShop(req.user.sellerId, req.body.shopId, true) : await prisma.shops.findFirst({ where: { seller_id: req.user.sellerId, status: 'active' } });
   if (!shop) throw new HttpError(400, 'Tạo cửa hàng hoạt động trước khi đăng sản phẩm.');
   const category_id = await categoryId(req.body.categoryId);
-  const urls = saveImages(req.body.images || []);
+  const urls = await saveImages(req.body.images || []);
   const created = await prisma.$transaction(async tx => {
     const product = await tx.products.create({ data: { shop_id: shop.shop_id, name: input.name, description: input.description, status: 'draft' } });
     const variant = await tx.product_variants.create({ data: { product_id: product.product_id, sku: input.sku || `SKU-${product.product_id}-${Date.now()}`, price: String(input.price) } });
@@ -99,7 +99,7 @@ exports.uploadImages = action(async (req, res) => {
   const product = await ownProduct(req.user.sellerId, req.params.productId);
   await ownShop(req.user.sellerId, product.shop_id, true);
   if (product.status === 'banned') throw new HttpError(403, 'Sản phẩm đã bị khóa.');
-  const urls = saveImages(req.body.images || []);
+  const urls = await saveImages(req.body.images || []);
   const count = await prisma.product_media.count({ where: { product_id: product.product_id } });
   await prisma.$transaction(async tx => {
     if (urls.length) await tx.product_media.createMany({ data: urls.map((url, i) => ({ product_id: product.product_id, url, media_type: 'image', is_thumbnail: count === 0 && i === 0, sort_order: count + i })) });
