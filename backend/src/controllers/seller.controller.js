@@ -94,7 +94,7 @@ exports.updateProduct = action(async (req, res) => {
     await saveVariants(tx, product.product_id, variants);
     await tx.product_category_map.deleteMany({ where: { product_id: product.product_id } });
     if (category_id) await tx.product_category_map.create({ data: { product_id: product.product_id, category_id } });
-  });
+  }, { isolationLevel: 'ReadCommitted' });
   res.json({ success: true, message: 'Đã cập nhật. Sản phẩm đang chờ duyệt lại.' });
 });
 exports.uploadImages = action(async (req, res) => {
