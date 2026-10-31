@@ -125,6 +125,9 @@ test('QR checkout, stock reservations, seller confirmations, receipt and verifie
     assert.equal((await transition(oc, orderA.id, 'received')).status, 404);
     assert.equal((await transition(bc, orderA.id, 'received')).status, 409);
     assert.equal((await request('/api/orders/' + orderA.id + '/reviews', bc, 'POST', { productId: a.product_id, rating: 5 })).status, 403);
+    const eligible = await request('/api/orders/reviewable?productId=' + a.product_id, bc);
+    assert.equal(eligible.status, 200); assert.equal(eligible.data.data.eligible.length, 0);
+    assert.equal(eligible.data.data.pendingOrder.id, orderA.id);
   });
   await t.test('QR changes affect future orders only; cancelling unpaid orders releases stock exactly once', async () => {
     const nextQr = await qr(sa, sellerA.shop); assert.notEqual(nextQr, qrA);
@@ -154,6 +157,9 @@ test('QR checkout, stock reservations, seller confirmations, receipt and verifie
     assert.equal((await request('/api/orders', bc)).data.data.find(order => order.id === orderB.id).status, 'pending');
   });
   await t.test('only the receiving buyer can review purchased products once; ratings are public', async () => {
+    const eligible = await request('/api/orders/reviewable?productId=' + a.product_id, bc);
+    assert.deepEqual(eligible.data.data.eligible.map(order => order.id), [orderA.id]);
+    assert.equal((await request('/api/orders/reviewable?productId=' + a.product_id, oc)).data.data.eligible.length, 0);
     for (const rating of [0, 6, 1.5]) assert.equal((await request('/api/orders/' + orderA.id + '/reviews', bc, 'POST', { productId: a.product_id, rating })).status, 400);
     assert.equal((await request('/api/orders/' + orderA.id + '/reviews', oc, 'POST', { productId: a.product_id, rating: 5 })).status, 404);
     assert.equal((await request('/api/orders/' + orderA.id + '/reviews', bc, 'POST', { productId: b.product_id, rating: 5 })).status, 403);
@@ -161,6 +167,61 @@ test('QR checkout, stock reservations, seller confirmations, receipt and verifie
     assert.equal((await request('/api/orders/' + orderA.id + '/reviews', bc, 'POST', { productId: a.product_id, rating: 1 })).status, 409);
     const detail = (await request('/api/products/' + a.product_id)).data.data;
     assert.equal(Number(detail.rating), 5); assert.equal(detail.reviewCount, 1); assert.equal(detail.reviews[0].comment, 'Received <b>great</b> goods');
+    const done = (await request('/api/orders/reviewable?productId=' + a.product_id, bc)).data.data;
+    assert.equal(done.eligible.length, 0); assert.equal(done.hasReviewed, true);
+  });
+  await t.test('only owning sellers can list and reply; replies never overwrite customer rating or comment', async () => {
+    const review = await prisma.reviews.findFirst({ where: { order_id: orderA.id } });
+    assert.equal((await request('/api/seller/reviews')).status, 401);
+    for (const cookie of [bc, ac]) {
+      assert.equal((await request('/api/seller/reviews', cookie)).status, 403);
+      assert.equal((await request('/api/seller/reviews/' + review.review_id + '/reply', cookie, 'PUT', { reply: 'Forged' })).status, 403);
+    }
+    assert.equal((await request('/api/seller/reviews', sb)).data.data.length, 0);
+    assert.equal((await request('/api/seller/reviews/' + review.review_id + '/reply', sb, 'PUT', { reply: 'Forged' })).status, 404);
+    const list = (await request('/api/seller/reviews', sa)).data.data;
+    assert.equal(list.length, 1); assert.equal(list[0].id, review.review_id);
+    assert.equal(list[0].email, undefined); assert.equal(list[0].address, undefined);
+    const payload = '</textarea><img src=x onerror="window.__xss=1"><svg onload="window.__xss=2"></svg> \' OR 1=1; DROP TABLE users;--';
+    const saved = await request('/api/seller/reviews/' + review.review_id + '/reply', sa, 'PUT', { reply: payload, rating: 1, comment: 'Overwritten', user_id: other.user_id, product_id: b.product_id });
+    assert.equal(saved.status, 200); assert.equal(saved.data.data.sellerReply.text, payload);
+    let stored = await prisma.reviews.findUnique({ where: { review_id: review.review_id } });
+    assert.equal(stored.rating, 5); assert.equal(stored.comment, review.comment); assert.equal(stored.user_id, buyer.user_id); assert.equal(stored.product_id, a.product_id);
+    const firstReplyAt = stored.seller_reply_at;
+    assert.equal((await request('/api/seller/reviews/' + review.review_id + '/reply', sa, 'PUT', { reply: 'Updated reply' })).status, 200);
+    stored = await prisma.reviews.findUnique({ where: { review_id: review.review_id } });
+    assert.deepEqual(stored.seller_reply_at, firstReplyAt);
+    assert.equal((await request('/api/products/' + a.product_id)).data.data.reviews[0].sellerReply.text, 'Updated reply');
+    const order = (await request('/api/orders', bc)).data.data.find(order => order.id === orderA.id);
+    assert.equal(order.items[0].review.sellerReply.text, 'Updated reply');
+  });
+  await t.test('empty, non-text and oversized replies are rejected; hidden reviews cannot be replied to', async () => {
+    const review = await prisma.reviews.findFirst({ where: { order_id: orderA.id } });
+    for (const reply of ['', '   ', 'x'.repeat(2001), { text: 'object' }]) assert.equal((await request('/api/seller/reviews/' + review.review_id + '/reply', sa, 'PUT', { reply })).status, 400);
+    await prisma.reviews.update({ where: { review_id: review.review_id }, data: { status: 'hidden' } });
+    assert.equal((await request('/api/seller/reviews', sa)).data.data.length, 0);
+    assert.equal((await request('/api/seller/reviews/' + review.review_id + '/reply', sa, 'PUT', { reply: 'Hidden reply' })).status, 404);
+    assert.equal((await request('/api/products/' + a.product_id)).data.data.reviews.length, 0);
+    await prisma.reviews.update({ where: { review_id: review.review_id }, data: { status: 'visible' } });
+  });
+  await t.test('SQL injection strings cannot alter IDs, search, login or row counts; security headers are present', async () => {
+    const before = await prisma.users.count();
+    for (const payload of ['1 OR 1=1', "' OR '1'='1' --", '1; DROP TABLE users;--']) {
+      const encoded = encodeURIComponent(payload);
+      assert.equal((await request('/api/products/' + encoded)).status, 400);
+      assert.equal((await request('/api/products?categoryId=' + encoded)).status, 400);
+      assert.equal((await request('/api/orders/reviewable?productId=' + encoded, bc)).status, 400);
+      assert.equal((await request('/api/orders/' + encoded + '/reviews', bc, 'POST', { productId: a.product_id, rating: 5 })).status, 400);
+      assert.equal((await request('/api/seller/reviews/' + encoded + '/reply', sa, 'PUT', { reply: 'Attempt' })).status, 400);
+      assert.equal((await request('/api/products?q=' + encoded)).data.data.length, 0);
+      assert.equal((await request('/api/auth/login', null, 'POST', { login: payload, password: payload })).status, 401);
+    }
+    assert.equal((await request('/api/orders/reviewable?productId[x]=1', bc)).status, 400);
+    assert.equal(await prisma.users.count(), before);
+    const response = await fetch(base + '/product-detail.html?id=' + a.product_id);
+    assert.match(response.headers.get('content-security-policy'), /script-src 'self'/);
+    assert.match(response.headers.get('content-security-policy'), /object-src 'none'/);
+    assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
   });
   await t.test('simultaneous review submissions create only one review', async () => {
     await finish(bc, sb, orderB);

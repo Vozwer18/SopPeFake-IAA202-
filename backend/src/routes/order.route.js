@@ -3,6 +3,7 @@ const c = require('../controllers/order.controller');
 const { requireAuth, requireRole } = require('../middleware/auth.middleware');
 r.use(requireAuth, requireRole('customer'));
 r.get('/', c.customerOrders);
+r.get('/reviewable', require('../controllers/review.controller').eligibility);
 r.post('/checkout', c.checkout);
 r.post('/:id/reviews', c.review);
 r.post('/:id/:action', c.customerAction);

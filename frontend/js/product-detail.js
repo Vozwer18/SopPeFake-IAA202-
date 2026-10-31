@@ -123,6 +123,36 @@
           return `<article class="review-item"><div class="avatar">${esc(String(review.userName || 'U')[0])}</div><div><b>${esc(review.userName || 'Người mua')}</b><div class="stars" aria-label="${stars} trên 5 sao">${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}</div><small class="muted">${date && !Number.isNaN(date.getTime()) ? esc(date.toLocaleDateString('vi-VN')) : ''}</small><p>${esc(review.comment || 'Người mua không để lại nhận xét.')}</p><div class="review-images">${(review.media || []).map((url) => photo(url, 'Ảnh đánh giá', 'loading="lazy"')).join('')}</div></div></article>`;
         })
         .join('') || '<div class="empty">Chưa có đánh giá cho sản phẩm này.</div>';
+    document.querySelectorAll('#review-list .review-item').forEach((article, index) => {
+      if (reviews[index].sellerReply) article.lastElementChild.append(ReviewUI.reply(reviews[index].sellerReply));
+    });
+  }
+  async function reviewComposer() {
+    const composer = document.getElementById('review-composer');
+    const { node } = ReviewUI;
+    if (user?.role !== 'customer') {
+      composer.replaceChildren(node('p', user ? 'Đánh giá dành cho tài khoản người mua đã nhận hàng.' : 'Đăng nhập tài khoản người mua để đánh giá sản phẩm đã nhận.'));
+      if (!user) {
+        const link = node('a', 'Đăng nhập'); link.href = `login.html?next=${encodeURIComponent(location.pathname + location.search)}`; composer.append(link);
+      }
+      return;
+    }
+    try {
+      const state = (await api(`/api/orders/reviewable?productId=${encodeURIComponent(id)}`)).data;
+      composer.replaceChildren();
+      if (state.eligible.length) {
+        composer.append(ReviewUI.form({ title: 'Viết đánh giá', orders: state.eligible, onSave: async data => {
+          await api(`/api/orders/${encodeURIComponent(data.orderId)}/reviews`, { method: 'POST', body: JSON.stringify({ productId: id, rating: data.rating, comment: data.comment }) });
+          product = (await api(`/api/products/${encodeURIComponent(id)}`)).data;
+          renderReviews(); await reviewComposer();
+        } }));
+      } else {
+        composer.append(node('p', state.pendingOrder ? 'Bạn có đơn chưa hoàn tất. Sau khi shop xác nhận thanh toán và gửi hàng, hãy vào Đơn mua xác nhận Đã nhận hàng để viết đánh giá.' : state.hasReviewed ? 'Bạn đã đánh giá sản phẩm trong các đơn đã nhận.' : 'Bạn có thể đánh giá sau khi mua và xác nhận đã nhận sản phẩm.'));
+      }
+      const link = node('a', 'Xem đơn mua của bạn');
+      link.href = state.pendingOrder ? `orders.html?order=${encodeURIComponent(state.pendingOrder.id)}` : 'orders.html';
+      composer.append(link);
+    } catch (error) { composer.replaceChildren(node('p', error.message)); }
   }
   async function init() {
     SopPe.mountNavbar();
@@ -146,6 +176,7 @@
       document.getElementById('description-section').hidden = false;
       document.getElementById('reviews-section').hidden = false;
       renderReviews();
+      await reviewComposer();
     } catch (error) {
       box.innerHTML = `<div class="empty card" role="alert">${esc(error.message || 'Không thể tải sản phẩm.')}</div>`;
     }

@@ -1,6 +1,7 @@
 const prisma = require('../config/database');
 const { action, id, HttpError } = require('../lib/validation');
 const { visibleShop, availableStock, mediaOrder } = require('../lib/catalogue');
+const { sellerReply } = require('../lib/review-view');
 
 exports.getProducts = action(async (req, res) => {
   const query = String(req.query.q || '')
@@ -104,6 +105,7 @@ exports.getProductDetail = action(async (req, res) => {
         id: review.review_id,
         rating: review.rating,
         comment: review.comment,
+        sellerReply: sellerReply(review),
         createdAt: review.created_at,
         userName: review.users?.full_name || review.users?.username || 'Người mua',
         avatar: review.users?.avatar || '',

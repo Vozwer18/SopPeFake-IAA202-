@@ -3,6 +3,7 @@ const prisma = require('../config/database');
 const { action, id, text, integer, HttpError } = require('../lib/validation');
 const { availableStock } = require('../lib/catalogue');
 const { lockCustomer, lockStock, releaseReserved } = require('../lib/order-workflow');
+const { sellerReply } = require('../lib/review-view');
 const includeOrder = {
   addresses: true, payments: true, reviews: true,
   order_items: { orderBy: { order_item_id: 'asc' }, include: { shops: { select: { shop_id: true, shop_name: true, seller_id: true } } } },
@@ -24,7 +25,7 @@ function present(order) {
     canShip: qrOrder && paid && ['confirmed', 'packing'].includes(order.status),
     items: order.order_items.map(item => {
       const review = reviewed.get(item.product_id);
-      return { id: item.order_item_id, productId: item.product_id, variantId: item.variant_id, name: item.product_name, sku: item.variant_name, quantity: item.quantity, price: Number(item.price), subtotal: Number(item.subtotal), canReview: order.status === 'completed' && paid && !review, review: review ? { rating: review.rating, comment: review.comment } : null };
+      return { id: item.order_item_id, productId: item.product_id, variantId: item.variant_id, name: item.product_name, sku: item.variant_name, quantity: item.quantity, price: Number(item.price), subtotal: Number(item.subtotal), canReview: order.status === 'completed' && paid && !review, review: review ? { id: review.review_id, rating: review.rating, comment: review.comment, sellerReply: sellerReply(review) } : null };
     }),
   };
 }

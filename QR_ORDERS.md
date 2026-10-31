@@ -75,6 +75,10 @@ Vào **Đơn hàng** từ thanh tài khoản, giỏ hàng hoặc trang tài kho�
 2. Khi trạng thái là **Hàng đã gửi** và đã thật sự nhận hàng, bấm **Đã nhận hàng**.
 3. Form đánh giá xuất hiện: chọn 1–5 sao, nhập nhận xét nếu muốn, rồi **Gửi đánh giá**.
 
+Cũng có thể mở trang sản phẩm, kéo đến **Đánh giá sản phẩm → Viết đánh giá**.
+Shop xem và phản hồi trong mục **Đánh giá** của bảng điều khiển. Phản hồi hiển
+thị trên trang sản phẩm và đơn mua; xem [hướng dẫn chi tiết](REVIEW_SECURITY.md).
+
 Chỉ người mua của đơn đã nhận mới đánh giá được sản phẩm có trong đơn đó. Mỗi
 sản phẩm được đánh giá một lần trong một đơn, kể cả đơn có nhiều SKU của cùng
 sản phẩm. Đánh giá hiển thị trên trang chi tiết sản phẩm; điểm sản phẩm và shop

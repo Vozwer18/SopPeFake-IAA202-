@@ -590,6 +590,9 @@ model reviews {
   order_id     Int?
   rating       Int
   comment      String?         @db.Text
+  seller_reply String?         @db.Text
+  seller_reply_at DateTime?    @db.Timestamp(0)
+  seller_reply_updated_at DateTime? @db.Timestamp(0)
   status       reviews_status? @default(pending)
   created_at   DateTime?       @default(now()) @db.Timestamp(0)
   updated_at   DateTime?       @default(now()) @db.Timestamp(0)

@@ -39,6 +39,10 @@ keyboard-contained dialogs, image fallbacks and retry controls for failed lists.
 The seller shop form's **Tạo mới** action clears the edited shop ID before creating
 another shop.
 
+Verified buyers can review from the product page or their completed order.
+Sellers can read and reply to their own products' reviews in **Đánh giá**.
+See [review instructions and the XSS/SQL injection checks](REVIEW_SECURITY.md).
+
 ## Local development
 
 Requires Node.js 22+ and MySQL 8 (Docker Compose is optional). Run commands from

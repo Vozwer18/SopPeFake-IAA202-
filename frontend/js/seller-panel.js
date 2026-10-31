@@ -19,6 +19,7 @@
     dashboard: 'Tổng quan',
     products: 'Quản lý sản phẩm',
     orders: 'Đơn hàng của shop',
+    reviews: 'Đánh giá của người mua',
     shops: 'Cửa hàng của bạn',
     categories: 'Danh mục sản phẩm',
     shipping: 'Dịch vụ vận chuyển',
@@ -103,6 +104,15 @@
     const orders = (await api('/api/seller/orders')).data || [];
     document.getElementById('seller-orders').innerHTML = orders.length ? orders.map(order => OrderUI.render(order, 'seller')).join('') : '<div class="empty card">Shop chưa có đơn hàng.</div>';
   }
+  async function loadReviews() {
+    const reviews = (await api('/api/seller/reviews')).data || [];
+    const list = document.getElementById('seller-reviews');
+    list.replaceChildren(...(reviews.length ? reviews.map(ReviewUI.sellerCard) : [ReviewUI.node('p', 'Chưa có đánh giá từ người mua.', 'empty card')]));
+  }
+  document.getElementById('refresh-seller-reviews').onclick = async event => {
+    event.target.disabled = true;
+    try { await loadReviews(); } catch (error) { message(error.message, 'error'); } finally { event.target.disabled = false; }
+  };
   OrderUI.bind(document.getElementById('seller-orders'), 'seller', async () => { await Promise.all([loadOrders(), dashboard()]); });
   document.getElementById('refresh-seller-orders').onclick = async event => {
     event.target.disabled = true;
@@ -343,6 +353,7 @@
   Promise.allSettled([
     dashboard(),
     loadPanelSection('seller-orders', loadOrders),
+    loadPanelSection('seller-reviews', loadReviews),
     loadPanelSection('seller-products', loadProducts, 5),
     loadPanelSection('seller-shops', loadShops),
     loadPanelSection('seller-categories', loadCategories),

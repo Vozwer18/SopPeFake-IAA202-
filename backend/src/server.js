@@ -12,6 +12,8 @@ if (process.env.TRUST_PROXY === '1') app.set('trust proxy', 1);
 app.use((req,res,next) => {
   res.setHeader('X-Content-Type-Options','nosniff');
   res.setHeader('Referrer-Policy','same-origin');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: http: data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+  res.setHeader('X-Frame-Options', 'DENY');
   // Cookie-authenticated mutations must originate from this website.
   if (!['GET','HEAD','OPTIONS'].includes(req.method) && req.headers.origin) {
     let sameOrigin = false;

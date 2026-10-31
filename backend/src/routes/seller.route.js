@@ -6,6 +6,8 @@ r.get('/dashboard', c.dashboard);
 r.get('/shops', c.shops); r.post('/shops', c.createShop); r.patch('/shops/:id', c.updateShop);
 r.put('/shops/:id/payment-qr', c.paymentQr);
 r.get('/orders', orders.sellerOrders);
+r.get('/reviews', require('../controllers/review.controller').sellerReviews);
+r.put('/reviews/:id/reply', require('../controllers/review.controller').reply);
 r.post('/orders/:id/:action', orders.sellerAction);
 r.get('/products', c.products); r.post('/products', c.createProduct); r.patch('/products/:id', c.updateProduct);
 r.patch('/products/:id/status', c.productVisibility);
