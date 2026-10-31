@@ -176,6 +176,7 @@ QR trong mục Cửa hàng; migration mới sẽ chạy khi deploy, không cần
 | Prisma `P1011` / lỗi TLS | Kiểm tra Secret File đúng tên, đủ nội dung CA, đường dẫn `/etc/secrets/aiven-ca.pem` và `sslaccept=strict`; không tắt kiểm tra chứng chỉ |
 | Prisma `P3005` | Database có bảng từ trước: dùng database demo mới trống; dữ liệu cũ cần quy trình baseline, không reset tùy tiện |
 | `uploaded_images` không tồn tại | Cần push migration thứ hai và đặt Docker Command là `npm run start:demo` |
+| `P2028`, `Transaction already closed`, timeout `5000 ms` | Deploy bản sửa mới nhất: ứng dụng dùng giới hạn giao dịch 30 giây, chờ bắt đầu giao dịch tối đa 10 giây và giảm truy vấn đọc lại đơn. Không cần sửa DB. Nếu vẫn hết hạn, tải lại trạng thái đơn trước khi thử lại; kiểm tra độ trễ giữa vùng Render và Aiven. |
 | Web mở được nhưng danh mục lỗi | `/api/health` chỉ kiểm tra HTTP; xem log database và `/api/categories` |
 | Lưu ảnh lỗi hoặc ảnh mất sau restart | Kiểm tra `MEDIA_STORAGE=database`, migration mới đã chạy; ảnh cũ trên filesystem cần tải lại |
 | Không có admin | Bật đủ ba biến bootstrap, Save and deploy, xem log; mật khẩu tối thiểu 12 ký tự |

@@ -112,7 +112,7 @@ exports.checkout = action(async (req, res) => {
     }
     await tx.carts.update({ where: { cart_id: cartId }, data: { status: 'checked_out', updated_at: new Date() } });
     return { orders: created, replayed: false };
-  }, { isolationLevel: 'ReadCommitted', timeout: 20000 });
+  }, { isolationLevel: 'ReadCommitted' });
   res.status(result.replayed ? 200 : 201).json({ success: true, data: result });
 });
 
@@ -138,16 +138,18 @@ exports.sellerAction = action(async (req, res) => {
     const next = command === 'paid' ? 'confirmed' : 'shipping';
     if (command === 'paid') {
       if (order.status !== 'pending' || !order.payments) throw new HttpError(409, 'Đơn không ở trạng thái chờ thanh toán.');
-      await tx.payments.update({ where: { order_id: orderId }, data: { payment_status: 'paid', paid_at: new Date() } });
+      order.payments = await tx.payments.update({ where: { order_id: orderId }, data: { payment_status: 'paid', paid_at: new Date() } });
     } else {
       if (!paid || !['confirmed', 'packing'].includes(order.status)) throw new HttpError(409, 'Cần xác nhận đã nhận thanh toán trước khi gửi hàng.');
       if (order.order_items.some(item => !item.variant_id)) throw new HttpError(409, 'Đơn cũ thiếu SKU, không thể tự cập nhật tồn kho.');
       await lockStock(tx, order.order_items.map(item => item.product_id), order.order_items.map(item => item.variant_id));
       for (const item of order.order_items) await releaseReserved(tx, item.variant_id, item.quantity, true);
     }
-    await tx.orders.update({ where: { order_id: orderId }, data: { status: next, updated_at: new Date() } });
+    const updated = await tx.orders.update({ where: { order_id: orderId }, data: { status: next, updated_at: new Date() } });
     await tx.order_status_history.create({ data: { order_id: orderId, old_status: order.status, new_status: next, note: command === 'paid' ? 'Shop xác nhận đã nhận thanh toán.' : 'Shop xác nhận hàng đã gửi.' } });
-    return present(await tx.orders.findUnique({ where: { order_id: orderId }, include: includeOrder }));
+    // Reuse the relations read under the order lock instead of fetching them
+    // again over the network; only the order and payment changed here.
+    return present({ ...order, ...updated });
   }, { isolationLevel: 'ReadCommitted' });
   res.json({ success: true, data: result });
 });
@@ -169,9 +171,9 @@ exports.customerAction = action(async (req, res) => {
       await lockStock(tx, order.order_items.map(item => item.product_id), order.order_items.map(item => item.variant_id));
       for (const item of order.order_items) await releaseReserved(tx, item.variant_id, item.quantity);
     }
-    await tx.orders.update({ where: { order_id: orderId }, data: { status: next, updated_at: new Date() } });
+    const updated = await tx.orders.update({ where: { order_id: orderId }, data: { status: next, updated_at: new Date() } });
     await tx.order_status_history.create({ data: { order_id: orderId, old_status: order.status, new_status: next, note: command === 'received' ? 'Người mua xác nhận đã nhận hàng.' : 'Người mua hủy đơn chưa thanh toán.' } });
-    return present(await tx.orders.findUnique({ where: { order_id: orderId }, include: includeOrder }));
+    return present({ ...order, ...updated });
   }, { isolationLevel: 'ReadCommitted' });
   res.json({ success: true, data: result });
 });

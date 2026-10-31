@@ -51,6 +51,10 @@ app.get('/login.html',loginPage,send('login.html'));
 for (const folder of ['css','js','assets','images','components']) app.use('/'+folder,express.static(path.join(FRONTEND,folder),{index:false}));
 app.use((req,res)=>res.status(404).json({success:false,message:'Không tìm thấy tài nguyên.'}));
 app.use((err,req,res,next)=>{
+  if (['P2028', 'P2024'].includes(err.code)) {
+    console.error('Database operation timed out:', err.code);
+    return res.status(503).json({success:false,code:'DATABASE_BUSY',message:'Máy chủ dữ liệu đang phản hồi chậm. Hãy tải lại trang để kiểm tra trạng thái trước khi thử lại.'});
+  }
   const status = err.status || (err.code === 'P2025' ? 404 : err.code === 'P2002' ? 409 : err.code === 'P2003' ? 400 : 500);
   if(status===500) console.error(err);
   const message = err.code === 'P2002' ? 'Tên đăng nhập, email hoặc SKU đã tồn tại.' : err.code === 'P2025' ? 'Không tìm thấy dữ liệu.' : err.code === 'P2003' ? 'Dữ liệu liên kết không hợp lệ.' : status===500 ? 'Có lỗi máy chủ. Vui lòng thử lại.' : err.message;

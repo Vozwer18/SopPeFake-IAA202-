@@ -75,6 +75,16 @@ test('QR checkout, stock reservations, seller confirmations, receipt and verifie
   async function body(cookie) { return { cartId: (await request('/api/cart', cookie)).data.data.cart_id, checkoutKey: randomUUID(), address, total: 1, shippingFee: -500 }; }
   async function stock(p) { return prisma.inventories.findUnique({ where: { inventory_id: p.inventory.inventory_id } }); }
   async function transition(cookie, orderId, action, seller = false) { return request(`${seller ? '/api/seller/orders' : '/api/orders'}/${orderId}/${action}`, cookie, 'POST'); }
+  async function slowTransaction(run) {
+    const original = prisma.$transaction;
+    prisma.$transaction = (callback, options) => original.call(prisma, async tx => {
+      // Real MySQL delay while the interactive transaction timer is running.
+      // This exceeds Prisma's original 5-second default.
+      await tx.$queryRaw`SELECT SLEEP(5.2)`;
+      return callback(tx);
+    }, options);
+    try { return await run(); } finally { prisma.$transaction = original; }
+  }
   async function finish(cookie, sellerCookie, order) {
     assert.equal((await transition(sellerCookie, order.id, 'paid', true)).status, 200);
     assert.equal((await transition(sellerCookie, order.id, 'shipped', true)).status, 200);
@@ -142,15 +152,40 @@ test('QR checkout, stock reservations, seller confirmations, receipt and verifie
     assert.equal((await stock(a)).reserved_quantity, 3); assert.equal((await stock(a)).quantity, 12);
     assert.equal((await transition(sa, order.id, 'paid', true)).status, 409);
   });
-  await t.test('seller must confirm payment before shipment; repeated actions never consume stock twice', async () => {
+  await t.test('an expired transaction rolls back payment and order writes and returns a safe retry message', async () => {
+    const original = prisma.$transaction;
+    const before = await prisma.order_status_history.count({ where: { order_id: orderA.id } });
+    prisma.$transaction = (callback, options) => original.call(prisma, async tx => {
+      const result = await callback(tx);
+      // Expire between queries, so the test checks rollback without leaving a
+      // sleeping server query in flight when Prisma returns its connection.
+      await new Promise(resolve => setTimeout(resolve, 600));
+      return result;
+    }, { ...options, timeout: 250 });
+    let result;
+    try { result = await transition(sa, orderA.id, 'paid', true); }
+    finally { prisma.$transaction = original; }
+    assert.equal(result.status, 503, JSON.stringify(result.data));
+    assert.equal(result.data.code, 'DATABASE_BUSY');
+    assert.match(result.data.message, /kiểm tra trạng thái/);
+    assert.doesNotMatch(JSON.stringify(result.data), /prisma|SELECT|\/app\/|P2028/);
+    assert.equal((await prisma.orders.findUnique({ where: { order_id: orderA.id } })).status, 'pending');
+    const payment = await prisma.payments.findUnique({ where: { order_id: orderA.id } });
+    assert.equal(payment.payment_status, 'pending'); assert.equal(payment.paid_at, null);
+    assert.equal(await prisma.order_status_history.count({ where: { order_id: orderA.id } }), before);
+  });
+  await t.test('payment, shipment and receipt survive more than five seconds; retries never consume stock twice', async () => {
     assert.equal((await transition(sa, orderA.id, 'shipped', true)).status, 409);
-    assert.equal((await transition(sa, orderA.id, 'paid', true)).status, 200);
+    const paid = await slowTransaction(() => transition(sa, orderA.id, 'paid', true));
+    assert.equal(paid.status, 200, JSON.stringify(paid.data)); assert.equal(paid.data.data.paymentStatus, 'paid'); assert.equal(paid.data.data.status, 'confirmed');
     assert.equal((await transition(sa, orderA.id, 'paid', true)).status, 200);
     assert.equal((await transition(bc, orderA.id, 'cancel')).status, 409);
-    assert.equal((await transition(sa, orderA.id, 'shipped', true)).status, 200);
+    const shipped = await slowTransaction(() => transition(sa, orderA.id, 'shipped', true));
+    assert.equal(shipped.status, 200, JSON.stringify(shipped.data)); assert.equal(shipped.data.data.status, 'shipping');
     assert.equal((await transition(sa, orderA.id, 'shipped', true)).status, 200);
     assert.equal((await stock(a)).quantity, 10); assert.equal((await stock(a)).reserved_quantity, 1);
-    assert.equal((await transition(bc, orderA.id, 'received')).status, 200);
+    const received = await slowTransaction(() => transition(bc, orderA.id, 'received'));
+    assert.equal(received.status, 200, JSON.stringify(received.data)); assert.equal(received.data.data.items[0].canReview, true);
     assert.equal((await transition(bc, orderA.id, 'received')).status, 200);
     assert.equal((await prisma.products.findUnique({ where: { product_id: a.product_id } })).sold_quantity, 2);
     assert.equal(await prisma.order_status_history.count({ where: { order_id: orderA.id } }), 4);
@@ -163,7 +198,7 @@ test('QR checkout, stock reservations, seller confirmations, receipt and verifie
     for (const rating of [0, 6, 1.5]) assert.equal((await request('/api/orders/' + orderA.id + '/reviews', bc, 'POST', { productId: a.product_id, rating })).status, 400);
     assert.equal((await request('/api/orders/' + orderA.id + '/reviews', oc, 'POST', { productId: a.product_id, rating: 5 })).status, 404);
     assert.equal((await request('/api/orders/' + orderA.id + '/reviews', bc, 'POST', { productId: b.product_id, rating: 5 })).status, 403);
-    const review = await request('/api/orders/' + orderA.id + '/reviews', bc, 'POST', { productId: a.product_id, rating: 5, comment: 'Received <b>great</b> goods' }); assert.equal(review.status, 201);
+    const review = await slowTransaction(() => request('/api/orders/' + orderA.id + '/reviews', bc, 'POST', { productId: a.product_id, rating: 5, comment: 'Received <b>great</b> goods' })); assert.equal(review.status, 201, JSON.stringify(review.data));
     assert.equal((await request('/api/orders/' + orderA.id + '/reviews', bc, 'POST', { productId: a.product_id, rating: 1 })).status, 409);
     const detail = (await request('/api/products/' + a.product_id)).data.data;
     assert.equal(Number(detail.rating), 5); assert.equal(detail.reviewCount, 1); assert.equal(detail.reviews[0].comment, 'Received <b>great</b> goods');
@@ -183,7 +218,7 @@ test('QR checkout, stock reservations, seller confirmations, receipt and verifie
     assert.equal(list.length, 1); assert.equal(list[0].id, review.review_id);
     assert.equal(list[0].email, undefined); assert.equal(list[0].address, undefined);
     const payload = '</textarea><img src=x onerror="window.__xss=1"><svg onload="window.__xss=2"></svg> \' OR 1=1; DROP TABLE users;--';
-    const saved = await request('/api/seller/reviews/' + review.review_id + '/reply', sa, 'PUT', { reply: payload, rating: 1, comment: 'Overwritten', user_id: other.user_id, product_id: b.product_id });
+    const saved = await slowTransaction(() => request('/api/seller/reviews/' + review.review_id + '/reply', sa, 'PUT', { reply: payload, rating: 1, comment: 'Overwritten', user_id: other.user_id, product_id: b.product_id }));
     assert.equal(saved.status, 200); assert.equal(saved.data.data.sellerReply.text, payload);
     let stored = await prisma.reviews.findUnique({ where: { review_id: review.review_id } });
     assert.equal(stored.rating, 5); assert.equal(stored.comment, review.comment); assert.equal(stored.user_id, buyer.user_id); assert.equal(stored.product_id, a.product_id);
