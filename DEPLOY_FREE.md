@@ -1,4 +1,4 @@
-# Demo môn học miễn phí: Render + Aiven MySQL
+# Demo IAA202: Render + Aiven MySQL
 
 Phương án này dành cho việc demo trong vài ngày: Render Free chạy Express và
 giao diện; Aiven MySQL Free lưu tài khoản, sản phẩm và ảnh. Website chạy trên
