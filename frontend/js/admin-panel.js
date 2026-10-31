@@ -299,7 +299,7 @@
       .filter((r) => r.status === 'rejected')
       .forEach((r) => {
         document.getElementById('panel-error').textContent = r.reason.message;
-        if (r.reason.status === 401) location.href = '/login.html';
+        if (r.reason.status === 401) location.href = 'login.html';
       }),
   );
 })();

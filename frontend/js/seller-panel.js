@@ -37,7 +37,7 @@
   document.getElementById('logout').onclick = SopPe.logout;
   const failure = (e) => {
     document.getElementById('panel-error').textContent = e.message;
-    if (e.status === 401) location.href = '/login.html';
+    if (e.status === 401) location.href = 'login.html';
   };
   async function dashboard() {
     const j = await api('/api/seller/dashboard');

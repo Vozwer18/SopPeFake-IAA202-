@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "Sop Pe Fake E-commerce Backend",
   "main": "src/server.js",
-
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
@@ -11,10 +10,9 @@
     "db:push": "prisma db push",
     "admin:create": "node scripts/create-admin.js",
     "test": "npm run test:unit && npm run test:integration",
-    "test:unit": "node test/auth.unit.test.js",
+    "test:unit": "node --test test/auth.unit.test.js test/navigation.unit.test.js",
     "test:integration": "node test/marketplace.integration.test.js"
   },
-
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "bcrypt": "^6.0.0",

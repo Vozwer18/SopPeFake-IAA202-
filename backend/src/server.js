@@ -33,7 +33,7 @@ app.use('/api/seller',require('./routes/seller.route'));
 app.use('/api/admin',require('./routes/admin.route'));
 app.use('/api/cart',require('./routes/cart.route'));
 const send = name => (req,res) => res.sendFile(path.join(FRONTEND,name));
-app.get(['/','/index.html'],marketplacePage,(req,res)=>res.redirect(req.user?'/user-panel.html':'/guest-panel.html'));
+app.get(['/','/index.html'],marketplacePage,send('index.html'));
 app.get('/guest-panel.html',marketplacePage,send('guest-panel.html'));
 app.get('/user-panel.html',protectPage('customer'),send('user-panel.html'));
 app.get('/product-list.html',marketplacePage,send('product-list.html'));

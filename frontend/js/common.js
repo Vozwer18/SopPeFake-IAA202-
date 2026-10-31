@@ -33,7 +33,21 @@
     },
     true,
   );
+  const localPreview = location.protocol === 'file:';
+  const previewMessage = 'Bạn đang xem file HTML trực tiếp. Hãy chạy backend và mở http://localhost:3000 để tải dữ liệu và sử dụng chức năng này.';
+  if (localPreview) {
+    const notice = document.createElement('aside');
+    notice.className = 'notice local-preview-notice';
+    notice.setAttribute('role', 'status');
+    notice.textContent = previewMessage + ' ';
+    const link = document.createElement('a');
+    link.href = 'http://localhost:3000';
+    link.textContent = 'Mở SopPe Fake trên server →';
+    notice.append(link);
+    document.body.prepend(notice);
+  }
   async function api(path, options = {}) {
+    if (localPreview) throw new Error(previewMessage);
     const response = await fetch(path, {
       credentials: 'same-origin',
       ...options,
@@ -118,7 +132,7 @@
       await loader();
     } catch (error) {
       if (error.status === 401) {
-        location.href = '/login.html';
+        location.href = 'login.html';
         return;
       }
       target.innerHTML = content(
@@ -145,7 +159,7 @@
   }
   function productCard(p) {
     const image = imageUrl(p.image);
-    return `<a class="home-product product-card card" href="/product-detail.html?id=${encodeURIComponent(p.id)}"><div class="pic product-image placeholder-img">${image ? `<img src="${esc(image)}" alt="${esc(p.name)}" loading="lazy">` : '<span>Chưa có ảnh</span>'}</div><div class="body product-body"><h3>${esc(p.name)}</h3><div class="price product-price">${money(p.price)}</div><div class="meta"><span>${esc(p.shop || '')}</span><span>Đã bán ${Number(p.sold || 0)}</span></div></div></a>`;
+    return `<a class="home-product product-card card" href="product-detail.html?id=${encodeURIComponent(p.id)}"><div class="pic product-image placeholder-img">${image ? `<img src="${esc(image)}" alt="${esc(p.name)}" loading="lazy">` : '<span>Chưa có ảnh</span>'}</div><div class="body product-body"><h3>${esc(p.name)}</h3><div class="price product-price">${money(p.price)}</div><div class="meta"><span>${esc(p.shop || '')}</span><span>Đã bán ${Number(p.sold || 0)}</span></div></div></a>`;
   }
   async function filesToData(files) {
     const list = [...files];
@@ -172,13 +186,22 @@
     const node = document.getElementById('navbar');
     if (!node) return null;
     try {
-      const response = await fetch('/components/navbar.html');
-      if (!response.ok) throw new Error('Không thể tải thanh điều hướng.');
-      node.innerHTML = await response.text();
+      if (!node.querySelector('#global-search')) {
+        const response = await fetch('components/navbar.html');
+        if (!response.ok) throw new Error('Không thể tải thanh điều hướng.');
+        node.innerHTML = await response.text();
+      }
     } catch (error) {
       node.innerHTML =
-        '<nav class="container notice"><a href="/">Trang chủ</a> · <a href="/product-list.html">Sản phẩm</a> · <a href="/login.html">Tài khoản</a></nav>';
+        '<nav class="container notice"><a href="index.html">Trang chủ</a> · <a href="product-list.html">Sản phẩm</a> · <a href="login.html">Tài khoản</a></nav>';
       message(error.message, 'error');
+      return null;
+    }
+    if (localPreview) {
+      document.getElementById('global-search').onsubmit = event => {
+        event.preventDefault();
+        location.href = 'product-list.html?q=' + encodeURIComponent(document.getElementById('search-input').value.trim());
+      };
       return null;
     }
     let user = null;
@@ -192,10 +215,10 @@
     if (user) {
       const panel =
         user.role === 'admin'
-          ? '/admin-panel.html'
+          ? 'admin-panel.html'
           : user.role === 'seller'
-            ? '/seller-panel.html'
-            : '/user-panel.html';
+            ? 'seller-panel.html'
+            : 'user-panel.html';
       account.innerHTML = `<a href="${panel}">${esc(user.fullName || user.username)}</a><button class="text-button" id="logout-link">Đăng xuất</button>`;
       document.getElementById('logout-link').onclick = logout;
     }
@@ -206,7 +229,7 @@
     document.getElementById('global-search').onsubmit = (e) => {
       e.preventDefault();
       location.href =
-        '/product-list.html?q=' +
+        'product-list.html?q=' +
         encodeURIComponent(document.getElementById('search-input').value.trim());
     };
     document.getElementById('search-input').value =
@@ -216,7 +239,7 @@
       document.getElementById('nav-categories').innerHTML = categories
         .map(
           (c) =>
-            `<a href="/product-list.html?categoryId=${encodeURIComponent(c.id)}">${esc(c.name)}</a>`,
+            `<a href="product-list.html?categoryId=${encodeURIComponent(c.id)}">${esc(c.name)}</a>`,
         )
         .join('');
     } catch {
@@ -236,7 +259,7 @@
   async function logout() {
     try {
       await api('/api/auth/logout', { method: 'POST' });
-      location.href = '/guest-panel.html';
+      location.href = 'guest-panel.html';
     } catch (e) {
       message(e.message, 'error');
     }

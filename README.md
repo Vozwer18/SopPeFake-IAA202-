@@ -138,3 +138,17 @@ deployment operating system; Windows-generated engines are not included.
 The customer panel currently supports the existing cart workflow. Checkout,
 payments, order fulfilment, password recovery, and production login throttling
 are separate features, not implemented by this change.
+
+## Opening HTML files and returning to the storefront
+
+Download/clone the **whole repository** and keep the `frontend/css` and
+`frontend/js` folders beside the HTML pages. Do not copy only the HTML files to
+`C:\`. Relative asset/page links now work when previewing files directly. The
+navbar is embedded in each storefront page so previewing does not require a
+`file://` fetch. A notice explains that live data and mutations require Express.
+
+For normal use, configure the backend as above, run `npm start` from `backend`,
+and open **http://localhost:3000** (not `file:///...` or Live Server).
+Admin and seller logos now open `index.html`, which serves the storefront for
+all roles. The account link returns to the appropriate panel. Protected panel
+routes and API role checks are unchanged; browsing does not grant cart access.

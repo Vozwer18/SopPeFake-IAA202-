@@ -180,7 +180,25 @@ test(
       }
     });
 
-    await t.test('customer, seller, and admin APIs reject cross-role access', async () => {
+    await t.test('all roles can open the storefront without being redirected back to their panel', async () => {
+    for (const cookie of [undefined, customerCookie, sellerCookie, adminCookie]) {
+      for (const page of ['/', '/index.html', '/guest-panel.html', '/product-list.html']) {
+        const result = await request(page, {cookie});
+        assert.equal(result.status, 200, page);
+        assert.match(result.data, /id="navbar"/);
+        assert.match(result.data, /href="index.html"/);
+      }
+    }
+    for (const [cookie, page] of [[sellerCookie,'seller'], [adminCookie,'admin']]) {
+      const result = await request('/'+page+'-panel.html', {cookie});
+      assert.match(result.data, /class="brand" href="index.html"/);
+      assert.match(result.data, /href="css\/panel.css"/);
+    }
+    for (const asset of ['/css/panel.css','/css/home.css','/css/navbar.css','/css/theme.css','/js/common.js'])
+      assert.equal((await request(asset)).status, 200, asset);
+  });
+
+  await t.test('customer, seller, and admin APIs reject cross-role access', async () => {
       for (const path of ['/api/seller/products', '/api/admin/users'])
         assert.equal((await request(path, { cookie: customerCookie })).status, 403);
       assert.equal(

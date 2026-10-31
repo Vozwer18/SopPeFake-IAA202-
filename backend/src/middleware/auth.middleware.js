@@ -46,7 +46,6 @@ function protectPage(role) {
 async function marketplacePage(req, res, next) {
   try {
     const user = await currentUser(req);
-    if (user && user.role !== 'customer') return res.redirect(pageForRole(user.role));
     if (user) req.user = user;
     next();
   } catch (e) { next(e); }
