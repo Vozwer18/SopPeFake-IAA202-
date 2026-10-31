@@ -23,6 +23,11 @@ them in the seller panel and chooses one when adding a product. New or edited
 products return to draft for administrator approval. Only active products from
 active shops, approved sellers and active seller accounts appear publicly.
 
+Sellers can manage multiple SKUs per product using **+ Thêm SKU** in the product
+form, with separate prices and stock. Existing SKUs can be retired/reactivated
+without breaking cart/order references. See [the multi-SKU guide](MULTI_SKU.md).
+This uses the current database schema and requires no new migration.
+
 The catalogue searches both product and shop names, with newest products first.
 Product details and cart quantities use the selected variant's available stock
 (quantity minus reserved quantity), excluding inactive variants. Cart images fall

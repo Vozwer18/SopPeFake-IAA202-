@@ -231,6 +231,21 @@
 .modal-head h3 {
   margin: 0;
 }
+#product-modal .modal-box { width: min(900px, 100%); }
+.sku-editor h4 { margin: 0; }
+#product-variants { display: grid; gap: 12px; }
+.sku-row { min-width: 0; margin: 0; padding: 14px; border: 1px solid var(--line); border-radius: 12px; }
+.sku-row legend { padding: 0 6px; font-weight: 700; color: var(--primary); }
+.sku-fields { display: grid; grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)); gap: 12px; }
+.sku-fields .field { min-width: 0; }
+.sku-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
+.sku-actions select { width: auto; min-width: 130px; }
+.sku-actions button { margin-left: auto; }
+.sku-inactive { background: #f5f7fa; }
+@media (max-width: 600px) {
+  .sku-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sku-code { grid-column: 1 / -1; }
+}
 .icon-btn {
   border: 0;
   background: var(--primary-soft);

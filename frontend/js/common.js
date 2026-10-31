@@ -159,7 +159,7 @@
   }
   function productCard(p) {
     const image = imageUrl(p.image);
-    return `<a class="home-product product-card card" href="product-detail.html?id=${encodeURIComponent(p.id)}"><div class="pic product-image placeholder-img">${image ? `<img src="${esc(image)}" alt="${esc(p.name)}" loading="lazy">` : '<span>Chưa có ảnh</span>'}</div><div class="body product-body"><h3>${esc(p.name)}</h3><div class="price product-price">${money(p.price)}</div><div class="meta"><span>${esc(p.shop || '')}</span><span>Đã bán ${Number(p.sold || 0)}</span></div></div></a>`;
+    return `<a class="home-product product-card card" href="product-detail.html?id=${encodeURIComponent(p.id)}"><div class="pic product-image placeholder-img">${image ? `<img src="${esc(image)}" alt="${esc(p.name)}" loading="lazy">` : '<span>Chưa có ảnh</span>'}</div><div class="body product-body"><h3>${esc(p.name)}</h3><div class="price product-price">${Number(p.maxPrice) > Number(p.price) ? 'Từ ' : ''}${money(p.price)}</div><div class="meta"><span>${esc(p.shop || '')}</span><span>Đã bán ${Number(p.sold || 0)}</span></div></div></a>`;
   }
   async function filesToData(files) {
     const list = [...files];

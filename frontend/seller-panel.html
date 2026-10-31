@@ -295,25 +295,14 @@
             <label for="product-category">Danh mục</label
             ><select id="product-category" name="categoryId" required></select>
           </div>
-          <div class="field">
-            <label for="product-price">Giá bán (₫)</label
-            ><input id="product-price" name="price" type="number" min="1" step="1" required />
-          </div>
-          <div class="field">
-            <label for="product-stock">Tồn kho</label
-            ><input
-              id="product-stock"
-              name="stock"
-              type="number"
-              min="0"
-              step="1"
-              value="0"
-              required
-            />
-          </div>
-          <div class="field full">
-            <label for="product-sku">SKU</label
-            ><input id="product-sku" name="sku" maxlength="100" placeholder="Để trống để tự tạo" />
+          <div class="field full sku-editor">
+            <div class="panel-head">
+              <div><h4>Phân loại / SKU</h4><small id="sku-count" class="muted" aria-live="polite"></small></div>
+              <button type="button" class="btn btn-outline" id="add-sku">+ Thêm SKU</button>
+            </div>
+            <p class="muted small">Mỗi SKU có giá và tồn kho riêng, ví dụ AO-DEN-M, AO-DEN-L. Để trống mã để tự tạo. Tối đa 32 SKU.</p>
+            <div id="product-variants"></div>
+            <p class="muted small">SKU đã lưu có thể ngừng bán và bật lại. Sản phẩm cần ít nhất một SKU đang bán.</p>
           </div>
           <div class="field full">
             <label for="product-description">Mô tả</label
