@@ -23,6 +23,17 @@ them in the seller panel and chooses one when adding a product. New or edited
 products return to draft for administrator approval. Only active products from
 active shops, approved sellers and active seller accounts appear publicly.
 
+The catalogue searches both product and shop names, with newest products first.
+Product details and cart quantities use the selected variant's available stock
+(quantity minus reserved quantity), excluding inactive variants. Cart images fall
+back to product media, and unavailable items are marked in the cart. Administrators
+can preview draft descriptions, images, categories and variants before approval.
+
+The interface supports narrow mobile screens, scrollable management tables,
+keyboard-contained dialogs, image fallbacks and retry controls for failed lists.
+The seller shop form's **Tạo mới** action clears the edited shop ID before creating
+another shop.
+
 ## Local development
 
 Requires Node.js 22+ and MySQL 8 (Docker Compose is optional). Run commands from
@@ -56,6 +67,22 @@ reviewed migration plan for a deployed database. The original SQL under
 `database/` is retained as reference and optional test data; setup never imports
 it. A new database starts with **no categories or products**.
 
+`database/index.sql` is an optional exception: it adds missing indexes and default
+system configuration entries to an already initialized database. It can be rerun
+after Prisma setup without duplicate-index errors or overwriting existing config
+values. Select the intended database in your MySQL client; the script no longer
+switches databases or disables foreign-key checks:
+
+```sh
+# From the project root; replace the two placeholders with your local settings.
+mysql -u YOUR_USER -p YOUR_DATABASE < database/index.sql
+```
+
+No schema migration is required for the interface/catalogue fixes. The legacy
+demo seed files remain optional reference data. Their plaintext sample passwords
+are not compatible with the bcrypt login flow; use registration or `admin:create`
+to provision usable accounts.
+
 ## First administrator and seller onboarding
 
 There are no default accounts/passwords. Create the first administrator locally
@@ -81,6 +108,8 @@ afterward. Public registration offers customer and seller roles only.
 The integration suite exercises real HTTP requests and MySQL: guest permissions,
 all panel guards, category persistence/filtering, seller ownership, image uploads,
 moderation, account/store suspension, registration, and customer cart isolation.
+It also covers shop-name search, newest-first sorting, protected draft previews,
+variant-level reserved stock and cart media/availability.
 It creates and removes only its own fixtures; it refuses database names that do
 not end in `_test`.
 
