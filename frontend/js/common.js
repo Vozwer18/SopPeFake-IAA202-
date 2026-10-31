@@ -219,7 +219,7 @@
           : user.role === 'seller'
             ? 'seller-panel.html'
             : 'user-panel.html';
-      account.innerHTML = `<a href="${panel}">${esc(user.fullName || user.username)}</a><button class="text-button" id="logout-link">Đăng xuất</button>`;
+      account.innerHTML = `<a href="${panel}">${esc(user.fullName || user.username)}</a>${user.role === 'customer' ? '<a href="orders.html">Đơn hàng</a>' : ''}<button class="text-button" id="logout-link">Đăng xuất</button>`;
       document.getElementById('logout-link').onclick = logout;
     }
     document.getElementById('cart-link').hidden = user?.role !== 'customer';

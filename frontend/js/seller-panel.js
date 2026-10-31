@@ -18,6 +18,7 @@
   const titles = {
     dashboard: 'Tổng quan',
     products: 'Quản lý sản phẩm',
+    orders: 'Đơn hàng của shop',
     shops: 'Cửa hàng của bạn',
     categories: 'Danh mục sản phẩm',
     shipping: 'Dịch vụ vận chuyển',
@@ -63,7 +64,7 @@
       shops
         .map(
           (s) =>
-            `<article class="card panel-card"><div class="panel-head"><h3>${esc(s.shop_name)}</h3><span class="status ${esc(s.status)}">${esc(statusLabel(s.status))}</span></div><p class="muted">${esc(s.description || 'Chưa có giới thiệu cửa hàng.')}</p><button class="btn btn-soft edit-shop" data-id="${s.shop_id}">Chỉnh sửa cửa hàng</button></article>`,
+            `<article class="card panel-card"><div class="panel-head"><h3>${esc(s.shop_name)}</h3><span class="status ${esc(s.status)}">${esc(statusLabel(s.status))}</span></div><p class="muted">${esc(s.description || 'Chưa có giới thiệu cửa hàng.')}</p><button class="btn btn-soft edit-shop" data-id="${s.shop_id}">Chỉnh sửa cửa hàng</button><div class="shop-payment"><h4>QR nhận tiền</h4>${imageUrl(s.payment_qr_url) ? `<img class="shop-qr-image" src="${esc(imageUrl(s.payment_qr_url))}" alt="QR nhận tiền của ${esc(s.shop_name)}">` : '<p class="muted">Chưa có QR. Cập nhật QR trước khi khách đặt hàng.</p>'}<p class="muted small">Dùng ảnh QR nhận chuyển khoản của bạn, không ghi sẵn số tiền. Đơn đã đặt giữ QR tại thời điểm đặt.</p><label class="btn btn-outline file-button">${s.payment_qr_url ? 'Thay ảnh QR' : 'Tải ảnh QR'}<input class="visually-hidden shop-qr-upload" type="file" accept="image/png,image/jpeg,image/webp" data-shop-id="${s.shop_id}"></label></div></article>`,
         )
         .join('') ||
       '<div class="empty card">Bạn chưa có cửa hàng. Hãy tạo cửa hàng đầu tiên.</div>';
@@ -98,6 +99,25 @@
         )
         .join('') || '<div class="empty card">Chưa có dịch vụ vận chuyển được cấu hình.</div>';
   }
+  async function loadOrders() {
+    const orders = (await api('/api/seller/orders')).data || [];
+    document.getElementById('seller-orders').innerHTML = orders.length ? orders.map(order => OrderUI.render(order, 'seller')).join('') : '<div class="empty card">Shop chưa có đơn hàng.</div>';
+  }
+  OrderUI.bind(document.getElementById('seller-orders'), 'seller', async () => { await Promise.all([loadOrders(), dashboard()]); });
+  document.getElementById('refresh-seller-orders').onclick = async event => {
+    event.target.disabled = true;
+    try { await loadOrders(); } catch (error) { message(error.message, 'error'); } finally { event.target.disabled = false; }
+  };
+  document.getElementById('seller-shops').onchange = async event => {
+    const input = event.target;
+    if (!input.matches('.shop-qr-upload') || !input.files.length) return;
+    input.disabled = true;
+    try {
+      const [image] = await filesToData(input.files);
+      await api(`/api/seller/shops/${input.dataset.shopId}/payment-qr`, { method: 'PUT', body: JSON.stringify({ image: image.data }) });
+      message('Đã cập nhật QR nhận tiền.'); await loadShops();
+    } catch (error) { message(error.message, 'error'); } finally { input.disabled = false; input.value = ''; }
+  };
   const modal = document.getElementById('product-modal'),
     form = document.getElementById('product-form');
   const variantList = document.getElementById('product-variants');
@@ -322,6 +342,7 @@
   };
   Promise.allSettled([
     dashboard(),
+    loadPanelSection('seller-orders', loadOrders),
     loadPanelSection('seller-products', loadProducts, 5),
     loadPanelSection('seller-shops', loadShops),
     loadPanelSection('seller-categories', loadCategories),

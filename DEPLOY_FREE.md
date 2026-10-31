@@ -163,8 +163,9 @@ Sau khi chấm xong, sao lưu nếu cần rồi xóa dịch vụ demo khi không
 đúng gói Free ở cả hai nền tảng; nếu giao diện đề nghị trả phí, dừng ở bước đó để
 kiểm tra lại gói, không cần nâng cấp cho luồng demo này.
 
-Website hiện có danh mục, seller/admin và giỏ hàng. Thanh toán, checkout và xử lý
-đơn chưa nằm trong các chức năng đã triển khai.
+Website có đặt hàng từ giỏ, chuyển khoản QR thủ công, xác nhận gửi/nhận hàng và
+đánh giá sau khi nhận. Xem [hướng dẫn QR và đơn hàng](QR_ORDERS.md). Người bán tải
+QR trong mục Cửa hàng; migration mới sẽ chạy khi deploy, không cần reset dữ liệu.
 
 ## Xử lý lỗi
 

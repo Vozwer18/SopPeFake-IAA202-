@@ -29,8 +29,12 @@ exports.dashboard = action(async (req, res) => {
   const seller = await prisma.sellers.findUnique({ where: { seller_id: req.user.sellerId }, include: { shops: { include: { shop_statistics: true } } } });
   if (!seller) throw new HttpError(404, 'Không tìm thấy người bán.');
   const ids = seller.shops.map(s => s.shop_id);
-  const [products, orders] = await Promise.all([prisma.products.count({ where: { shop_id: { in: ids } } }), prisma.order_items.count({ where: { shop_id: { in: ids } } })]);
-  res.json({ success: true, data: { seller, stats: { products, orders, shops: ids.length, revenue: seller.shops.reduce((sum, s) => sum + Number(s.shop_statistics?.[0]?.total_revenue || 0), 0) } } });
+  const [products, orders, revenue] = await Promise.all([
+    prisma.products.count({ where: { shop_id: { in: ids } } }),
+    prisma.orders.count({ where: { order_items: { some: { shop_id: { in: ids } } } } }),
+    prisma.order_items.aggregate({ where: { shop_id: { in: ids }, orders: { status: 'completed', payments: { payment_status: 'paid' } } }, _sum: { subtotal: true } }),
+  ]);
+  res.json({ success: true, data: { seller, stats: { products, orders, shops: ids.length, revenue: Number(revenue._sum.subtotal || 0) } } });
 });
 exports.shops = action(async (req, res) => {
   const data = await prisma.shops.findMany({ where: { seller_id: req.user.sellerId }, orderBy: { shop_id: 'asc' } });
@@ -53,6 +57,14 @@ exports.updateShop = action(async (req, res) => {
   }
   const updated = await prisma.shops.update({ where: { shop_id: shop.shop_id }, data });
   res.json({ success: true, data: updated });
+});
+exports.paymentQr = action(async (req, res) => {
+  const shop = await ownShop(req.user.sellerId, req.params.id);
+  if (shop.status === 'banned') throw new HttpError(403, 'Cửa hàng đã bị khóa.');
+  if (typeof req.body.image !== 'string') throw new HttpError(400, 'Chọn ảnh QR thanh toán.');
+  const [url] = await saveImages([req.body.image]);
+  await prisma.shops.update({ where: { shop_id: shop.shop_id }, data: { payment_qr_url: url, updated_at: new Date() } });
+  res.json({ success: true, data: { qrUrl: url }, message: 'Đã cập nhật QR nhận tiền của shop.' });
 });
 exports.products = action(async (req, res) => {
   const products = await prisma.products.findMany({ where: { shops: { seller_id: req.user.sellerId } }, orderBy: { created_at: 'desc' }, include: { shops: true, product_media: { orderBy: { sort_order: 'asc' } }, product_variants: { orderBy: { variant_id: 'asc' } }, inventories: {orderBy:{inventory_id:'asc'}}, product_category_map: { include: { categories: true } } } });

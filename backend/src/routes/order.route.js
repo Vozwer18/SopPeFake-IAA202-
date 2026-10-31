@@ -1,0 +1,9 @@
+const r = require('express').Router();
+const c = require('../controllers/order.controller');
+const { requireAuth, requireRole } = require('../middleware/auth.middleware');
+r.use(requireAuth, requireRole('customer'));
+r.get('/', c.customerOrders);
+r.post('/checkout', c.checkout);
+r.post('/:id/reviews', c.review);
+r.post('/:id/:action', c.customerAction);
+module.exports = r;
